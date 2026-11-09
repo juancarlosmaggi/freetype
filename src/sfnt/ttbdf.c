@@ -4,7 +4,7 @@
  *
  *   TrueType and OpenType embedded BDF properties (body).
  *
- * Copyright (C) 2005-2025 by
+ * Copyright (C) 2005-2026 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -216,8 +216,9 @@
           case 0x00:  /* string */
           case 0x01:  /* atoms */
             /* check that the content is really 0-terminated */
-            if ( value < bdf->strings_size                               &&
-                 ft_memchr( bdf->strings + value, 0, bdf->strings_size ) )
+            if ( value < bdf->strings_size              &&
+                 ft_memchr( bdf->strings + value, 0,
+                            bdf->strings_size - value ) )
             {
               aprop->type   = BDF_PROPERTY_TYPE_ATOM;
               aprop->u.atom = (const char*)bdf->strings + value;

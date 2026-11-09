@@ -4,7 +4,7 @@
  *
  *   Routines to parse and access the 'GPOS' table for simple kerning (body).
  *
- * Copyright (C) 2025 by
+ * Copyright (C) 2025-2026 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -55,7 +55,7 @@
     FT_Byte*  p = table;
     FT_Byte*  limit;
 
-    FT_Long  last_id = -1;
+    FT_UInt  next_id = 0;
 
 
     if ( table_limit < p + 4 )
@@ -79,9 +79,9 @@
         FT_UInt  id = FT_NEXT_USHORT( p );
 
 
-        if ( last_id >= id )
+        if ( next_id > id )
           return FALSE;
-        last_id = id;
+        next_id = id + 1;
       }
     }
     else if ( format == 2 )
@@ -103,9 +103,9 @@
         if ( startGlyphID > endGlyphID )
           return FALSE;
 
-        if ( last_id >= startGlyphID )
+        if ( next_id > startGlyphID )
           return FALSE;
-        last_id = endGlyphID;
+        next_id = endGlyphID + 1;
 
         /* XXX: Is this modulo 65536 arithmetic? */
         if ( startCoverageIndex + endGlyphID - startGlyphID >=
@@ -164,7 +164,7 @@
     else if ( format == 2 )
     {
       FT_UInt  classRangeCount;
-      FT_Long  last_id = -1;
+      FT_UInt  next_id = 0;
 
 
       if ( table_limit < p + 2 )
@@ -185,9 +185,9 @@
         if ( startGlyphID > endGlyphID )
           return FALSE;
 
-        if ( last_id >= startGlyphID )
+        if ( next_id > startGlyphID )
           return FALSE;
-        last_id = endGlyphID;
+        next_id = endGlyphID + 1;
 
         if ( class_value > max_class_value )
           max_class_value = class_value;
@@ -291,7 +291,7 @@
     FT_Byte*  p = table;
     FT_Byte*  limit;
 
-    FT_Long  last_id = -1;
+    FT_UInt  next_id = 0;
 
 
     if ( table_limit < p + 2 )
@@ -311,10 +311,10 @@
       FT_UInt  id = FT_NEXT_USHORT( p );
 
 
-      if ( last_id >= id )
+      if ( next_id > id )
         return FALSE;
 
-      last_id = id;
+      next_id = id + 1;
 
       p += 2; /* Skip `valueRecord1`. */
     }
@@ -408,6 +408,8 @@
       FT_UInt   class1Count;
       FT_UInt   class2Count;
 
+      FT_UInt  max_size;
+
 
       /* The number of coverage indices is not relevant here. */
       if ( !tt_face_validate_coverage( coverage, table_limit, FT_UINT_MAX ) )
@@ -432,7 +434,11 @@
 
       /* For our purposes, the first value record only contains */
       /* X advances while the second one is empty.              */
-      limit = p + class1Count * class2Count * 2;
+      max_size = class1Count * class2Count;
+      if ( max_size > FT_UINT_MAX / 2 )
+        return FALSE;
+
+      limit = p + max_size * 2;
       if ( table_limit < limit )
         return FALSE;
 
@@ -713,7 +719,7 @@
     return error;
 
   Fail:
-    FT_FREE( gpos );
+    FT_FRAME_RELEASE( gpos );
     FT_FREE( gpos_lookups_kerning );
     FT_FREE( use_lookup_table );
 
@@ -817,7 +823,7 @@
 
       /* XXX: Is this modulo 65536 arithmetic? */
       if ( startGlyphID              <= glyph_index &&
-           startGlyphID + glyphCount >= glyph_index )
+           startGlyphID + glyphCount > glyph_index  )
         return FT_PEEK_USHORT( p + ( glyph_index - startGlyphID ) * 2 );
     }
     else
@@ -884,7 +890,7 @@
 
 
       if ( second_glyph > mid_index )
-        min = max + 1;
+        min = mid + 1;
       else if ( second_glyph < mid_index )
         max = mid;
       else
